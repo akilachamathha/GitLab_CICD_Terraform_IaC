@@ -1,0 +1,73 @@
+variables:
+  AWS_REGION: "us-west-2"
+  ECR_REPO_NAME: "dev-webapp-ecr"
+  ECR_REGISTRY: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+  IMAGE_TAG: webapp-1.0
+
+# Pipeline stages
+stages:
+  - tests
+  - build
+  - deploy
+
+# This job runs the tests for the web application using pytest.
+run_tests:
+  stage: tests
+  image: python:3.10-slim # python image for running tests
+  before_script:
+    - apt-get update # update package
+    - cd webapp
+    - echo "Installing dependencies..."
+    - pip install --upgrade pip
+    - pip install pytest # install pytest
+    - pip install -r requirements.txt # install dependencies from requirements.txt
+  script:
+    - echo "Running Test..."
+    - pytest test_app.py
+    - echo "Test completed successfully."
+
+# This job builds the Docker image for the web application and pushes it to AWS ECR.
+build_image:
+  stage: build
+  image: docker:28.1.1 # docker image for building and pushing
+  services:
+    - docker:28.1.1-dind # docker-in-docker service
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs" # ensures secure communication between the Docker client and the Docker daemon
+  before_script:
+    - apk add --no-cache aws-cli # install AWS CLI
+    - aws --version
+    - echo "Logging in to ECR..."
+    - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY # login to ECR
+  script:
+    - docker build -f webapp/Dockerfile -t $ECR_REPO_NAME:$IMAGE_TAG webapp/ # build the Docker image
+    - docker tag $ECR_REPO_NAME:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPO_NAME:$IMAGE_TAG # tag the image
+    - docker push $ECR_REGISTRY/$ECR_REPO_NAME:$IMAGE_TAG # push the image to ECR
+
+# This job deploys the web application image using Terraform.
+deploy_image:
+  stage: deploy
+  image: alpine:3.20 # alpine image for running Python and Terraform
+  before_script:
+    - echo "Setting up AWS CLI..."
+    - apk add --no-cache curl jq python3 py3-pip # install curl, jq, python3, and pip
+    - python3 -m venv venv # create a virtual environment
+    - source venv/bin/activate # activate the virtual environment
+    - pip3 install awscli # install AWS CLI
+    - aws --version
+    - aws configure set region $AWS_REGION # configure AWS CLI
+    - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID # configure AWS CLI
+    - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY # configure AWS CLI
+    - echo "AWS Logging Successful."
+    - echo "Installing Terraform..."
+    - export TERRAFORM_VERSION=1.8.5 # specify the Terraform version
+    - wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip # download Terraform official binary
+    - unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip -d /usr/local/bin/ # unzip the binary
+    - terraform --version
+    - cd terraform
+  script:
+    - terraform init # initialize Terraform
+    - terraform apply -auto-approve # apply the Terraform configuration without manual approval
+    - echo "Deployment completed successfully."
+  only:
+    - release # Run the deploy job only on release branch
