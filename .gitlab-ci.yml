@@ -70,5 +70,5 @@ deploy_image:
     # - terraform apply -auto-approve # apply the Terraform configuration without manual approval
     # - echo "Deployment completed successfully."
     - terraform destroy -auto-approve # destroy the Terraform resources without manual approval
-  only:
-    - release # Run the deploy job only on release branch
+  # only:
+  #   - release # Run the deploy job only on release branch
