@@ -6,43 +6,43 @@ variables:
 
 # Pipeline stages
 stages:
-  # - tests
-  # - build
+  - tests
+  - build
   - deploy
 
-# # This job runs the tests for the web application using pytest.
-# run_tests:
-#   stage: tests
-#   image: python:3.10-slim # python image for running tests
-#   before_script:
-#     - apt-get update # update package
-#     - cd webapp
-#     - echo "Installing dependencies..."
-#     - pip install --upgrade pip
-#     - pip install pytest # install pytest
-#     - pip install -r requirements.txt # install dependencies from requirements.txt
-#   script:
-#     - echo "Running Test..."
-#     - pytest test_app.py
-#     - echo "Test completed successfully."
+# This job runs the tests for the web application using pytest.
+run_tests:
+  stage: tests
+  image: python:3.10-slim # python image for running tests
+  before_script:
+    - apt-get update # update package
+    - cd webapp
+    - echo "Installing dependencies..."
+    - pip install --upgrade pip
+    - pip install pytest # install pytest
+    - pip install -r requirements.txt # install dependencies from requirements.txt
+  script:
+    - echo "Running Test..."
+    - pytest test_app.py
+    - echo "Test completed successfully."
 
-# # This job builds the Docker image for the web application and pushes it to AWS ECR.
-# build_image:
-#   stage: build
-#   image: docker:28.1.1 # docker image for building and pushing
-#   services:
-#     - docker:28.1.1-dind # docker-in-docker service
-#   variables:
-#     DOCKER_TLS_CERTDIR: "/certs" # ensures secure communication between the Docker client and the Docker daemon
-#   before_script:
-#     - apk add --no-cache aws-cli # install AWS CLI
-#     - aws --version
-#     - echo "Logging in to ECR..."
-#     - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY # login to ECR
-#   script:
-#     - docker build -f webapp/Dockerfile -t $ECR_REPO_NAME:$IMAGE_TAG webapp/ # build the Docker image
-#     - docker tag $ECR_REPO_NAME:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPO_NAME:$IMAGE_TAG # tag the image
-#     - docker push $ECR_REGISTRY/$ECR_REPO_NAME:$IMAGE_TAG # push the image to ECR
+# This job builds the Docker image for the web application and pushes it to AWS ECR.
+build_image:
+  stage: build
+  image: docker:28.1.1 # docker image for building and pushing
+  services:
+    - docker:28.1.1-dind # docker-in-docker service
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs" # ensures secure communication between the Docker client and the Docker daemon
+  before_script:
+    - apk add --no-cache aws-cli # install AWS CLI
+    - aws --version
+    - echo "Logging in to ECR..."
+    - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY # login to ECR
+  script:
+    - docker build -f webapp/Dockerfile -t $ECR_REPO_NAME:$IMAGE_TAG webapp/ # build the Docker image
+    - docker tag $ECR_REPO_NAME:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPO_NAME:$IMAGE_TAG # tag the image
+    - docker push $ECR_REGISTRY/$ECR_REPO_NAME:$IMAGE_TAG # push the image to ECR
 
 # This job deploys the web application image using Terraform.
 deploy_image:
@@ -66,9 +66,8 @@ deploy_image:
     - terraform --version
     - cd terraform
   script:
-    # - terraform init # initialize Terraform
-    # - terraform apply -auto-approve # apply the Terraform configuration without manual approval
-    # - echo "Deployment completed successfully."
-    - terraform destroy -auto-approve # destroy the Terraform resources without manual approval
-  # only:
-  #   - release # Run the deploy job only on release branch
+    - terraform init # initialize Terraform
+    - terraform apply -auto-approve # apply the Terraform configuration without manual approval
+    - echo "Deployment completed successfully."
+  only:
+    - release # Run the deploy job only on release branch
